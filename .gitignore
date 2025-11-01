@@ -1,0 +1,15 @@
+# Main
+/ocicl/*
+*.log
+
+## source
+/source/ocicl/*
+/source/core/ocicl/*
+/source/utils/ocicl/*
+
+## libraries
+/libraries/ocicl/*
+/libraries/cl-chemexp/ocicl/*
+
+## frontends
+/frontends/ocicl/*
