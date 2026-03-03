@@ -1,0 +1,27 @@
+#+title: Formulyx
+#+author: logoraz
+#+date: 2025-02-15
+#+options: toc:nil
+#+startup: overview
+#+startup: inlineimages
+:meta:
+:end:
+
+Advanced Formulation Chemistry Tool.
+
+#+html: <p align="center"> <img src="assets/cl-logoraz.svg" width="200"/> </p>
+
+
+** Goals
+
+TBD
+
+
+** Installation
+
+TBD
+
+
+** References
+
+ - TBD

@@ -1,0 +1,13 @@
+# Main
+/ocicl*
+*.log
+
+
+## src
+
+
+## contrib
+
+
+## docs
+/docs/refs/*
