@@ -2,16 +2,12 @@
   (:nicknames #:frmlx)
   (:use #:cl)
   (:import-from #:formulyx/core/utilities
-                #:simple-pmap
-                #:t-ex
-                #:loop-ex)
+                #:simple-pmap)
   (:import-from #:formulyx/core/surfactant
                 #:surfactant)
   (:import-from #:formulyx/ui/app
                 #:start)
   (:export #:start
-           #:loop-ex
-           #:t-ex
            #:simple-pmap
            #:doc-test)
   (:documentation "Formulyx"))

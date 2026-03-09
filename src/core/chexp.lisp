@@ -1,8 +1,6 @@
 (defpackage #:formulyx/core/chexp
   (:use #:cl)
-  (:local-nicknames (#:jzon #:com.inuoe.jzon) 
-                    (#:t #:transducers)
-                    (#:j #:transducers/jzon))
+  (:local-nicknames (#:bt #:bordeaux-threads))
   (:export )
   (:documentation "Chemical Build Expressions."))
 

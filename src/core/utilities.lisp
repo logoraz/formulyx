@@ -1,9 +1,7 @@
 (defpackage #:formulyx/core/utilities
   (:use #:cl)
-  (:local-nicknames (#:t #:transducers))
+  (:local-nicknames (#:bt #:bordeaux-threads))
   (:export #:simple-pmap
-           #:t-ex
-           #:loop-ex
            #:gray
            #:wlog)
   (:documentation "Core utilities"))
@@ -55,24 +53,6 @@
             list))
          (results (mapcar #'bt:join-thread threads)))
     results))
-
-(defun loop-ex (&optional (end 1000000))
-  "Composable example with loop."
-  (loop :for i :from 0 :to end :by 2
-        :when (evenp i)
-        :counting i :into count
-        :summing (* i i) :into total
-        :until (= count 10)
-        :finally (return total)))
-
-(defun t-ex ()
-  "With cl-transducers - composable pipeline, no intermediates."
-  (t:transduce
-   (t:comp (t:filter #'evenp)
-           (t:map (lambda (x) (* x x)))
-           (t:take 10))
-   #'+
-   (t:ints 0)))
 
 ;; Scratch Notes
 #+nil (consp nil) ;; NIL

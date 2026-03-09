@@ -3,12 +3,8 @@
   :author "Erik P Almaraz"
   :license "AGPL-3.0-only"
   :version (:read-file-form "version.sexp" :at (0 1))
-  :depends-on ("bordeaux-threads"
-               "transducers"
-               "esrap"
-               "com.inuoe.jzon"
-               "spinneret"
-               "mito"
+  :depends-on ("bordeaux-threads" "transducers" "transducers/jzon"
+               "esrap" "cl-csv" "mito"
                "clog")
   :components
   ((:module "src"
@@ -17,11 +13,13 @@
       :components
       ((:file "utilities")
        (:file "chexp")
-       (:file "surfactant")))
+       (:file "surfactant")
+       (:file "scan")))
      (:module "ui"
       :depends-on ("core")
       :components
-      ((:file "app")))
+      ((:file "clog-widgets")
+       (:file "app" :depends-on ("clog-widgets"))))
      (:file "formulyx"  :depends-on ("core" "ui")))))
   :in-order-to ((test-op (test-op "formulyx/tests")))
   :long-description "An advanced Formulation Chemistry Software tool.")
@@ -35,7 +33,6 @@
 ;;; provides the package is not the same as the package name
 ;;; (converted to lower case).
 (register-system-packages "bordeaux-threads" '(:bt :bt2))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
