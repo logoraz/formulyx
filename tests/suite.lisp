@@ -1,7 +1,7 @@
 (defpackage #:formulyx/suite
   (:use #:cl)
   (:local-nicknames (#:prct #:parachute))
-  (:import-from #:formulyx/core/hlb)
+  (:import-from #:formulyx/core/scan)
   (:documentation "Main test suite."))
 
 (in-package #:formulyx/suite)

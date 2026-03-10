@@ -1,4 +1,4 @@
-(defpackage #:frmlx/docs
+(defpackage #:formulyx/docs
   (:use #:cl
         #:formulyx)
   (:local-nicknames (#:md #:3bmd)
@@ -6,7 +6,7 @@
   (:export #:build-docs)
   (:documentation "Documentation system for formulyx"))
 
-(in-package #:frmlx/docs)
+(in-package #:formulyx/docs)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;

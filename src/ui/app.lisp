@@ -1,6 +1,7 @@
 (defpackage #:formulyx/ui/app
   (:use #:cl)
-  (:local-nicknames (#:og #:clog))
+  (:local-nicknames (#:bt2 #:bordeaux-threads-2)
+   (#:og #:clog))
   (:import-from #:formulyx/core/scan
                 #:generate-ternary-grid
                 #:apply-to-grid
@@ -58,8 +59,8 @@
 ;;; Input Fields
 ;;;
 (defclass input-widget (widget)
-  ((placeholder :initarg :placeholder :initform ""     :accessor input-placeholder)
-   (width       :initarg :width       :initform "200px" :accessor input-width))
+  ((placeholder :initarg :placeholder :initform "" :accessor input-placeholder)
+   (width :initarg :width :initform "200px" :accessor input-width))
   (:documentation "Base input widget for text inputs."))
 
 (defclass number-input-widget (input-widget)
@@ -72,7 +73,8 @@
 
 (defmethod render ((input input-widget) body)
   (let ((element (og:create-form-element body :input)))
-    (style-input-field element (input-placeholder input) :width (input-width input))
+    (style-input-field element 
+                       (input-placeholder input) :width (input-width input))
     (setf (widget-element input) element)
     input))
 
@@ -166,7 +168,8 @@ and initial plot."
       (setf (og:attribute res-input "type") "number")
       (setf (og:attribute res-input "min")  "2")
       (setf (og:attribute res-input "max")  "100")
-      (style-input-field res-input (format nil "Resolution (default ~A)" resolution))
+      (style-input-field res-input 
+                         (format nil "Resolution (default ~A)" resolution))
 
       ;; Plot Button
       (let ((gen-btn (make-instance 'button-widget
@@ -204,10 +207,12 @@ and initial plot."
                   (res (or (and raw (> (length raw) 0)
                                 (parse-integer raw :junk-allowed t))
                            resolution))
-                  (filepath (let ((p (og:value path-input)))
-                              (if (and p (> (length p) 0))
-                                  (merge-pathnames p (default-export-path)) 
-                                  (merge-pathnames "ternary-grid.csv" (default-export-path))))))
+                  (filepath 
+                    (let ((p (og:value path-input)))
+                      (if (and p (> (length p) 0))
+                          (merge-pathnames p (default-export-path)) 
+                          (merge-pathnames "ternary-grid.csv" 
+                                           (default-export-path))))))
              (handler-case
                  (progn
                    (export-ternary-grid res fn filepath)
@@ -228,7 +233,8 @@ and initial plot."
                 "[{ type: 'scatterternary', mode: 'markers', ~A }], "
                 "~A); }, 500);")
         (og:html-id plot-div)
-        (make-ternary-data (apply-to-grid (generate-ternary-grid resolution) fn))
+        (make-ternary-data 
+         (apply-to-grid (generate-ternary-grid resolution) fn))
         (ternary-plot-layout a-title b-title c-title))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -237,13 +243,15 @@ and initial plot."
 
 (defun on-new-window (body)
   ;; Set favicon via head element
-  (og:create-child (og:head-element (og:html-document body))
-                   "<link rel=\"icon\" type=\"image/svg+xml\" href=\"/lisp-icon-sm.svg\">")
+  (og:create-child 
+   (og:head-element (og:html-document body))
+   "<link rel=\"icon\" type=\"image/svg+xml\" href=\"/lisp-icon-sm.svg\">")
 
-  (og:create-child (og:head-element (og:html-document body))
-                   "<style>input[type=number]::-webkit-inner-spin-button,
-                  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
-                  input[type=number] { -moz-appearance: textfield; }</style>")
+  (og:create-child 
+   (og:head-element (og:html-document body))
+   "<style>input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    input[type=number] { -moz-appearance: textfield; }</style>")
 
   ;; Load Plotly for ternary plots
   (og:load-script (og:html-document body)
@@ -307,6 +315,17 @@ and initial plot."
                              "")))
 
 (defun start ()
-  (og:initialize #'on-new-window
-                 :static-root (asdf:system-relative-pathname :formulyx "assets/"))
-  (og:open-browser))
+  (og:initialize
+   #'on-new-window
+   :static-root (merge-pathnames "assets/"
+                                 (uiop:pathname-directory-pathname
+                                  (or sb-ext:*runtime-pathname*
+                                      (uiop:getcwd)))))
+  (og:open-browser)
+  (let ((server-thread (find "clack-handler-hunchentoot" (bt2:all-threads)
+                             :key #'bt2:thread-name
+                             :test #'string=)))
+    (when server-thread
+      (handler-case
+          (bt2:join-thread server-thread)
+        (bt2:abnormal-exit () nil)))))
