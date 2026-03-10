@@ -1,4 +1,4 @@
-# Main
+# Root
 /ocicl*
 *.log
 
@@ -11,3 +11,6 @@
 
 ## docs
 /docs/refs/*
+
+## build
+/build/*

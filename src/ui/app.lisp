@@ -1,6 +1,7 @@
 (defpackage #:formulyx/ui/app
   (:use #:cl)
-  (:local-nicknames (#:og #:clog))
+  (:local-nicknames (#:bt2 #:bordeaux-threads-2)
+   (#:og #:clog))
   (:import-from #:formulyx/core/scan
                 #:generate-ternary-grid
                 #:apply-to-grid
@@ -22,6 +23,13 @@
   (:documentation "Base Class for UI widgets."))
 
 ;;;
+;;; Interface (Generic Functions)
+
+(defgeneric render (widget body)
+  (:documentation "Render a widget into a CLOG body."))
+
+
+;;;
 ;;; Buttons
 ;;;
 (defclass button-widget (widget)
@@ -29,9 +37,6 @@
    (bg-color :initarg :bg-color :initform "#4c566a" :accessor button-bg-color)
    (fg-color :initarg :fg-color :initform "#d8dee9" :accessor button-fg-color))
   (:documentation "Button Widget Class."))
-
-(defgeneric render (widget body)
-  (:documentation "Render a widget into a CLOG body."))
 
 (defmethod render ((btn button-widget) body)
   (let ((element (og:create-button body :content (button-label btn))))
@@ -58,8 +63,8 @@
 ;;; Input Fields
 ;;;
 (defclass input-widget (widget)
-  ((placeholder :initarg :placeholder :initform ""     :accessor input-placeholder)
-   (width       :initarg :width       :initform "200px" :accessor input-width))
+  ((placeholder :initarg :placeholder :initform "" :accessor input-placeholder)
+   (width :initarg :width :initform "200px" :accessor input-width))
   (:documentation "Base input widget for text inputs."))
 
 (defclass number-input-widget (input-widget)
@@ -72,7 +77,8 @@
 
 (defmethod render ((input input-widget) body)
   (let ((element (og:create-form-element body :input)))
-    (style-input-field element (input-placeholder input) :width (input-width input))
+    (style-input-field element 
+                       (input-placeholder input) :width (input-width input))
     (setf (widget-element input) element)
     input))
 
@@ -99,6 +105,31 @@
   (setf (og:style input "border")           "1px solid #4c566a")
   (setf (og:style input "padding")          "6px 10px")
   (setf (og:style input "margin-right")     "8px"))
+
+;;;
+;;; Plots
+;;;
+(defclass plot-widget (widget)
+  ((width  :initarg :width  :initform "600px" :accessor plot-width)
+   (height :initarg :height :initform "500px" :accessor plot-height)
+   (fn     :initarg :fn                       :accessor plot-fn))
+  (:documentation "Base plot widget class."))
+
+(defclass ternary-plot-widget (plot-widget)
+  ((resolution :initarg :resolution :initform 20  :accessor plot-resolution)
+   (a-title    :initarg :a-title    :initform "A" :accessor plot-a-title)
+   (b-title    :initarg :b-title    :initform "B" :accessor plot-b-title)
+   (c-title    :initarg :c-title    :initform "C" :accessor plot-c-title))
+  (:documentation "Ternary plot widget class."))
+
+(defgeneric plot-data (widget)
+  (:documentation "Serialize plot widget data to a JSON string."))
+
+(defgeneric plot-layout (widget)
+  (:documentation "Serialize plot widget layout to a JSON string."))
+
+(defgeneric update (widget body)
+  (:documentation "Re-render/update a plot widget with current state."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -161,13 +192,13 @@ and initial plot."
     (setf (og:style controls "align-items") "center")
     (setf (og:style controls "gap") "8px")
     
-    (let ((res-input  (og:create-form-element controls :input)))
-      ;; Style resolution input field
-      (setf (og:attribute res-input "type") "number")
-      (setf (og:attribute res-input "min")  "2")
-      (setf (og:attribute res-input "max")  "100")
-      (style-input-field res-input (format nil "Resolution (default ~A)" resolution))
-
+    (let ((res-input (make-instance 'number-input-widget
+                                    :placeholder 
+                                    (format nil "Resolution (default ~A)" 
+                                            resolution)
+                                    :min 2 :max 100)))
+      (render res-input controls)
+      
       ;; Plot Button
       (let ((gen-btn (make-instance 'button-widget
                                     :label "Plot Ternary"
@@ -177,7 +208,7 @@ and initial plot."
          gen-btn
          (lambda (obj)
            (declare (ignore obj))
-           (let* ((raw (og:value res-input))
+           (let* ((raw (input-value res-input))
                   (res (or (and raw (> (length raw) 0)
                                 (parse-integer raw :junk-allowed t))
                            resolution)))
@@ -188,26 +219,29 @@ and initial plot."
                                   :c-title c-title)))))
 
       ;; CSV Export Input Field, Button, and Status field
-      (let ((path-input (og:create-form-element controls :input))
+      (let ((path-input (make-instance 'input-widget
+                                       :placeholder "File Name (e.g. grid.csv)"
+                                       :width "200px"))
             (csv-btn (make-instance 'button-widget
                                     :label "Export to CSV"
                                     :bg-color "#b48ead" :fg-color "#2e3440"))
             (status (og:create-section echo :p :content "")))
-        ;; Style filepath input
-        (style-input-field path-input "File Name (e.g. grid.csv)" :width "200px")
+        (render path-input controls)
         (render csv-btn controls)
         (on-click
          csv-btn
          (lambda (obj)
            (declare (ignore obj))
-           (let* ((raw (og:value res-input))
+           (let* ((raw (input-value res-input))
                   (res (or (and raw (> (length raw) 0)
                                 (parse-integer raw :junk-allowed t))
                            resolution))
-                  (filepath (let ((p (og:value path-input)))
-                              (if (and p (> (length p) 0))
-                                  (merge-pathnames p (default-export-path)) 
-                                  (merge-pathnames "ternary-grid.csv" (default-export-path))))))
+                  (filepath 
+                    (let ((p (input-value path-input)))
+                      (if (and p (> (length p) 0))
+                          (merge-pathnames p (default-export-path)) 
+                          (merge-pathnames "ternary-grid.csv" 
+                                           (default-export-path))))))
              (handler-case
                  (progn
                    (export-ternary-grid res fn filepath)
@@ -228,7 +262,8 @@ and initial plot."
                 "[{ type: 'scatterternary', mode: 'markers', ~A }], "
                 "~A); }, 500);")
         (og:html-id plot-div)
-        (make-ternary-data (apply-to-grid (generate-ternary-grid resolution) fn))
+        (make-ternary-data 
+         (apply-to-grid (generate-ternary-grid resolution) fn))
         (ternary-plot-layout a-title b-title c-title))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -237,13 +272,15 @@ and initial plot."
 
 (defun on-new-window (body)
   ;; Set favicon via head element
-  (og:create-child (og:head-element (og:html-document body))
-                   "<link rel=\"icon\" type=\"image/svg+xml\" href=\"/lisp-icon-sm.svg\">")
+  (og:create-child 
+   (og:head-element (og:html-document body))
+   "<link rel=\"icon\" type=\"image/svg+xml\" href=\"/lisp-icon-sm.svg\">")
 
-  (og:create-child (og:head-element (og:html-document body))
-                   "<style>input[type=number]::-webkit-inner-spin-button,
-                  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
-                  input[type=number] { -moz-appearance: textfield; }</style>")
+  (og:create-child 
+   (og:head-element (og:html-document body))
+   "<style>input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    input[type=number] { -moz-appearance: textfield; }</style>")
 
   ;; Load Plotly for ternary plots
   (og:load-script (og:html-document body)
@@ -306,7 +343,24 @@ and initial plot."
                              (og:shutdown)
                              "")))
 
+(defun find-assets-root ()
+  (let ((runtime-assets (merge-pathnames
+                         "assets/"
+                         (uiop:pathname-directory-pathname
+                          sb-ext:*runtime-pathname*))))
+    (if (probe-file runtime-assets)
+        (uiop:pathname-directory-pathname sb-ext:*runtime-pathname*)
+        (uiop:getcwd))))
+
 (defun start ()
-  (og:initialize #'on-new-window
-                 :static-root (asdf:system-relative-pathname :formulyx "assets/"))
-  (og:open-browser))
+  (og:initialize
+   #'on-new-window
+   :static-root (merge-pathnames "assets/" (find-assets-root)))
+  (og:open-browser)
+  (let ((server-thread (find "clack-handler-hunchentoot" (bt2:all-threads)
+                             :key #'bt2:thread-name
+                             :test #'string=)))
+    (when server-thread
+      (handler-case
+          (bt2:join-thread server-thread)
+        (bt2:abnormal-exit () nil)))))

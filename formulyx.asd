@@ -3,7 +3,9 @@
   :author "Erik P Almaraz"
   :license "AGPL-3.0-only"
   :version (:read-file-form "version.sexp" :at (0 1))
-  :depends-on ("bordeaux-threads" "transducers" "transducers/jzon"
+  :defsystem-depends-on ("frmlx-asdf-system")
+  :class "frmlx-asdf-system/system:frmlx-system"
+  :depends-on ("bordeaux-threads" "cffi" "transducers" "transducers/jzon"
                "esrap" "cl-csv" "mito"
                "clog")
   :components
@@ -27,25 +29,16 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Register Systems
-;;; The function `register-system-packages' must be called to register packages
-;;; used or provided by your system when the name of the system/file that
-;;; provides the package is not the same as the package name
-;;; (converted to lower case).
-(register-system-packages "bordeaux-threads" '(:bt :bt2))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
 ;;; Secondary Systems
 
 (defsystem "formulyx/tests"
   :depends-on ("formulyx" "parachute")
   :components ((:module "tests"
                 :components
-                ((:file "test-suite"))))
+                ((:file "suite"))))
   :perform (test-op (o c)
                     (symbol-call :parachute
-                                 :test 'frmlx/suite)))
+                                 :test 'formulyx/suite)))
 
 (defsystem "formulyx/docs"
   :description "Documentation builder for Formulyx."
@@ -59,15 +52,30 @@
     :components
     ((:file "builder"))))
   :perform (build-op (o c)
-                     (symbol-call 'frmlx/docs 'build-docs)))
+                     (symbol-call 'formulyx/docs 'build-docs))
+  :long-description "Documentation builder for Formulyx.
+
+Run Build operation via:
+
+  (asdf:make :formulyx/docs)
+
+or alternatively,
+
+  (asdf:operate 'asdf:build-op :formulyx/docs)")
 
 (defsystem "formulyx/contrib"
   :description "Extra libraries to bring in if needed"
   :depends-on ("formulyx"))
 
 (defsystem "formulyx/exec"
-  :description "Build executable"
+  :description "Build Executable"
+  :class "frmlx-asdf-system/system:frmlx-exec-system"
   :depends-on ("formulyx")
   :build-operation "program-op"
   :build-pathname "build/formulyx"
-  :entry-point "formulyx:main")
+  :entry-point "formulyx:main"
+  :long-description "Build Formulyx Executable.
+
+Build operation via:
+
+  (asdf:make :formulyx/exec)")
