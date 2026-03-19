@@ -1,6 +1,6 @@
 (defpackage #:formulyx/core/chexp
   (:use #:cl)
-  (:local-nicknames (#:bt #:bordeaux-threads))
+  (:local-nicknames (#:bt2 #:bordeaux-threads-2))
   (:export )
   (:documentation "Chemical Build Expressions."))
 

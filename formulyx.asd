@@ -5,7 +5,7 @@
   :version (:read-file-form "version.sexp" :at (0 1))
   :defsystem-depends-on ("frmlx-asdf-system")
   :class "frmlx-asdf-system/system:frmlx-system"
-  :depends-on ("bordeaux-threads" "cffi" "transducers" "transducers/jzon"
+  :depends-on ("bordeaux-threads" "cffi"
                "esrap" "cl-csv" "mito"
                "clog")
   :components
