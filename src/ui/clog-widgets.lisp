@@ -2,13 +2,6 @@
   (:use #:cl)
   (:local-nicknames (#:bt2 #:bordeaux-threads-2)
                     (#:og #:clog))
-  ;; TODO remove this and move to app.list (controller)
-  (:import-from #:formulyx/core/scan
-                #:generate-ternary-grid
-                #:apply-to-grid
-                #+nil #:gibbs-free-mixing
-                #:export-ternary-grid
-                #:default-export-path)
   (:export #:render
            #:make-button
            #:on-click
@@ -170,7 +163,9 @@
   ((resolution :initarg :resolution :initform 20  :accessor plot-resolution)
    (a-title    :initarg :a-title    :initform "A" :accessor plot-a-title)
    (b-title    :initarg :b-title    :initform "B" :accessor plot-b-title)
-   (c-title    :initarg :c-title    :initform "C" :accessor plot-c-title))
+   (c-title    :initarg :c-title    :initform "C" :accessor plot-c-title)
+   (grid-fn    :initarg :grid-fn    :initform nil :accessor plot-grid-fn)
+   (apply-fn   :initarg :apply-fn   :initform nil :accessor plot-apply-fn))
   (:documentation "Ternary plot widget class."))
 
 (defgeneric plot-data (widget)
@@ -183,8 +178,8 @@
   (:documentation "Re-render/update a plot widget with current state."))
 
 (defmethod plot-data ((plot ternary-plot-widget))
-  (let* ((grid (generate-ternary-grid (plot-resolution plot)))
-         (points (apply-to-grid grid (plot-fn plot))))
+  (let* ((grid (funcall (plot-grid-fn plot) (plot-resolution plot)))
+         (points (funcall (plot-apply-fn plot) grid (plot-fn plot))))
     (format nil (concatenate
                  'string
                  "a:[~{~4f~^,~}], b:[~{~4f~^,~}], c:[~{~4f~^,~}], "
@@ -212,16 +207,18 @@
     (setf (og:style div "width")  (plot-width plot))
     (setf (og:style div "height") (plot-height plot))
     (setf (widget-element plot) div)
-    (og:js-execute 
-     body
-     (format nil (concatenate
-                  'string
-                  "setTimeout(() => { Plotly.newPlot('~A', "
-                  "[{ type: 'scatterternary', mode: 'markers', ~A }], "
-                  "~A); }, 500);")
-             (og:html-id div)
-             (plot-data plot)
-             (plot-layout plot)))
+    (bt2:make-thread
+     (lambda ()
+       (og:js-execute 
+        body
+        (format nil (concatenate
+                     'string
+                     "setTimeout(() => { Plotly.newPlot('~A', "
+                     "[{ type: 'scatterternary', mode: 'markers', ~A }], "
+                     "~A); }, 500);")
+                (og:html-id div)
+                (plot-data plot)
+                (plot-layout plot)))))
     plot))
 
 (defmethod update ((plot ternary-plot-widget) body)
@@ -240,12 +237,16 @@
 ;;;
 ;;; Plot Constructors
 ;;;
-
-(defun make-ternary-plot (fn &key (resolution 20) (width "600px") (height "500px")
-                                  (a-title "A") (b-title "B") (c-title "C"))
+(defun make-ternary-plot (fn grid-fn apply-fn &key (resolution 10) 
+                                                   (width "600px") 
+                                                   (height "500px")
+                                                   (a-title "A") 
+                                                   (b-title "B") 
+                                                   (c-title "C"))
   "Create a ternary plot widget."
   (make-instance 'ternary-plot-widget
-                 :fn fn :resolution resolution :width width :height height
+                 :fn fn :grid-fn grid-fn :apply-fn apply-fn
+                 :resolution resolution :width width :height height
                  :a-title a-title :b-title b-title :c-title c-title))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -264,14 +265,18 @@
     panel))
 
 (defclass ternary-panel-widget (panel-widget)
-  ((fn         :initarg :fn                        :accessor panel-fn)
-   (resolution :initarg :resolution :initform 20   :accessor panel-resolution)
-   (a-title    :initarg :a-title    :initform "A"  :accessor panel-a-title)
-   (b-title    :initarg :b-title    :initform "B"  :accessor panel-b-title)
-   (c-title    :initarg :c-title    :initform "C"  :accessor panel-c-title)
-   (submit-btn :initform nil                        :accessor panel-submit-btn)
-   (export-btn :initform nil                        :accessor panel-export-btn)
-   (echo       :initform nil                        :accessor panel-echo)
+  ((fn          :initarg :fn                           :accessor panel-fn)
+   (resolution  :initarg :resolution  :initform 10     :accessor panel-resolution)
+   (a-title     :initarg :a-title     :initform "A"    :accessor panel-a-title)
+   (b-title     :initarg :b-title     :initform "B"    :accessor panel-b-title)
+   (c-title     :initarg :c-title     :initform "C"    :accessor panel-c-title)
+   (grid-fn     :initarg :grid-fn     :initform nil    :accessor panel-grid-fn)
+   (apply-fn    :initarg :apply-fn    :initform nil    :accessor panel-apply-fn)
+   (export-fn   :initarg :export-fn   :initform nil    :accessor panel-export-fn)
+   (export-path :initarg :export-path :initform nil    :accessor panel-export-path)
+   (submit-btn  :initform nil                          :accessor panel-submit-btn)
+   (export-btn  :initform nil                          :accessor panel-export-btn)
+   (echo        :initform nil                          :accessor panel-echo)
    (echo-height :initarg :echo-height :initform "20px" :accessor panel-echo-height))
   (:documentation "Ternary panel widget class."))
 
@@ -311,6 +316,8 @@
                                                 (panel-resolution panel))
                                         :min 2 :max 100))
           (plot (make-ternary-plot (panel-fn panel)
+                                   (panel-grid-fn panel)
+                                   (panel-apply-fn panel)
                                    :resolution (panel-resolution panel)
                                    :a-title    (panel-a-title panel)
                                    :b-title    (panel-b-title panel)
@@ -344,40 +351,48 @@
                          (set-value gridpoints-output
                                     (if (and raw (> (length raw) 0))
                                         (format nil "~A pts"
-                                                (length (generate-ternary-grid res)))
+                                                (length (funcall (panel-grid-fn panel) res)))
                                         "")))))
-          (on-export panel
-                     (lambda (obj)
-                       (declare (ignore obj))
-                       (let* ((raw (input-value res-input))
-                              (res (or (and raw (> (length raw) 0)
-                                            (parse-integer raw :junk-allowed t))
-                                       (panel-resolution panel)))
-                              (filepath
-                                (let ((p (input-value path-input)))
-                                  (if (and p (> (length p) 0))
-                                      (merge-pathnames p (default-export-path))
-                                      (merge-pathnames "ternary-grid.csv"
-                                                       (default-export-path))))))
-                         (handler-case
-                             (progn
-                               (export-ternary-grid res (panel-fn panel) filepath)
-                               (setf (og:text status)
-                                     (format nil "Exported to ~A" filepath)))
-                           (error (e)
-                             (setf (og:text status)
-                                   (format nil "Export failed: ~A" e))))))))
+          (on-export 
+           panel
+           (lambda (obj)
+             (declare (ignore obj))
+             (let* ((raw (input-value res-input))
+                    (res (or (and raw (> (length raw) 0)
+                                  (parse-integer raw :junk-allowed t))
+                             (panel-resolution panel)))
+                    (filepath
+                      (let ((p (input-value path-input)))
+                        (if (and p (> (length p) 0))
+                            (merge-pathnames p (funcall (panel-export-path panel)))
+                            (merge-pathnames "ternary-grid.csv"
+                                             (funcall (panel-export-path panel)))))))
+               (handler-case
+                   (progn
+                     (let ((result 
+                             (funcall (panel-export-fn panel) 
+                                      res (panel-fn panel) filepath)))
+                       (setf (og:text status) (format nil "Exported to ~A" result))))
+                 (error (e)
+                   (setf (og:text status)
+                         (format nil "Export failed: ~A" e))))))))
         (render plot body)))))
 
 ;;;
 ;;; Form Constructors
 ;;;
-(defun make-ternary-panel (fn &key (resolution 20)
-                                   (a-title "A") (b-title "B") (c-title "C")
-                                   (buffer-height "20px") (echo-height "20px"))
+(defun make-ternary-panel (fn grid-fn apply-fn export-fn export-path
+                           &key (resolution 10)
+                                (a-title "A")
+                                (b-title "B")
+                                (c-title "C")
+                                (buffer-height "20px")
+                                (echo-height   "20px"))
   "Create a ternary panel widget."
   (make-instance 'ternary-panel-widget
-                 :fn fn :resolution resolution
+                 :fn fn :grid-fn grid-fn :apply-fn apply-fn
+                 :export-fn export-fn :export-path export-path
+                 :resolution resolution
                  :a-title a-title :b-title b-title :c-title c-title
                  :buffer-height buffer-height :echo-height echo-height))
 

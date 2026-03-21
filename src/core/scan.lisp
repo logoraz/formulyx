@@ -54,8 +54,12 @@
     dir))
 
 (defun export-ternary-grid (resolution fn filepath)
-  "Export a ternary grid with applied fn to a CSV file."
-  (let* ((grid (generate-ternary-grid resolution))
+  "Export a ternary grid with applied fn to a CSV file.
+Ensures the filepath has a .csv extension, appending it if necessary."
+  (let* ((filepath (if (string-equal (pathname-type filepath) "csv")
+                       filepath
+                       (make-pathname :type "csv" :defaults filepath)))
+         (grid (generate-ternary-grid resolution))
          (data (apply-to-grid grid fn)))
     (with-open-file (stream filepath
                             :direction :output
@@ -66,5 +70,5 @@
                                      (list (first p) (second p)
                                            (third p) (fourth p)))
                                    data))
-                     :stream stream))))
-
+                     :stream stream))
+    filepath))

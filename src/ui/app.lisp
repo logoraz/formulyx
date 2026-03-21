@@ -3,11 +3,11 @@
   (:local-nicknames (#:bt2 #:bordeaux-threads-2)
                     (#:og #:clog))
   (:import-from #:formulyx/core/scan
-                #+nil #:generate-ternary-grid
-                #+nil #:apply-to-grid
+                #:generate-ternary-grid
+                #:apply-to-grid
                 #:gibbs-free-mixing
-                #+nil #:export-ternary-grid
-                #+nil #:default-export-path)
+                #:export-ternary-grid
+                #:default-export-path)
   (:import-from #:formulyx/ui/clog-widgets
                 #:render
                 #:make-button
@@ -70,7 +70,11 @@
        (uiop:quit))))
 
   (let ((panel (make-ternary-panel #'gibbs-free-mixing
-                                   :resolution 20
+                                   #'generate-ternary-grid
+                                   #'apply-to-grid
+                                   #'export-ternary-grid
+                                   #'default-export-path
+                                   :resolution 10
                                    :a-title    "Component A"
                                    :b-title    "Component B"
                                    :c-title    "Component C")))
